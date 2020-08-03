@@ -18,7 +18,7 @@
 
 use std::error::Error;
 use std::fmt;
-use std::io::{self, Read};
+use std::io;
 
 use serde_json;
 
@@ -62,20 +62,19 @@ impl From<serde_json::error::Error> for EsError {
     }
 }
 
-impl<'a> From<&'a mut reqwest::Response> for EsError {
-    fn from(err: &'a mut reqwest::Response) -> EsError {
-        let mut body = String::new();
-        match err.read_to_string(&mut body) {
-            Ok(_) => (),
-            Err(_) => {
+impl From<reqwest::blocking::Response> for EsError {
+    fn from(err: reqwest::blocking::Response) -> EsError {
+        let status = err.status();
+        let body = match err.text() {
+            Ok(body) => body,
+            Err(err) => {
                 return EsError::EsServerError(format!(
                     "{} - cannot read response - {:?}",
-                    err.status(),
-                    err
+                    status, err
                 ));
             }
-        }
-        EsError::EsServerError(format!("{} - {}", err.status(), body))
+        };
+        EsError::EsServerError(format!("{} - {}", status, body))
     }
 }
 
